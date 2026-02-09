@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM nvidia/cuda:12.2.2-cudnn8-devel-ubuntu22.04
+FROM vastai/base-image:cuda-12.4.1-auto
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
@@ -44,7 +44,7 @@ COPY . /app
 
 RUN pip install --no-cache-dir -e /app
 
-ARG DOWNLOAD_WEIGHTS=false
+ARG DOWNLOAD_WEIGHTS=true
 RUN mkdir -p "${HF_HOME}" && \
     if [ "${DOWNLOAD_WEIGHTS}" = "true" ]; then \
         boltzgen download all --cache "${HF_HOME}" --force_download; \
