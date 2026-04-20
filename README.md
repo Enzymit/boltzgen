@@ -314,9 +314,9 @@ constraints:
 
 ```
 
-## Symmetric complex design
+## Symmetric complex design (inverse-folding only)
 
-For symmetric complexes (e.g., homo-dimers), the `protein-redesign` protocol correctly handles the case where designed residues appear on multiple chains. Use `symmetric_group` to link chains so they receive the same sampled lengths for variable-length insertions:
+For symmetric complexes (e.g., homo-dimers), the you can tie sequence generation during inverse folding by specifying the `symmetric_group` for each symmetric chain. The `protein-redesign` protocol allows for scoring complexes without separate binders/targets.
 
 ```yaml
 entities:
@@ -338,43 +338,6 @@ entities:
             id: A
             res_index: 200..210
         - chain:
-            id: B
-            res_index: 200..210
-
-      # Exclude original residues that will be replaced by insertions
-      exclude:
-        - chain:
-            id: A
-            res_index: 200..210
-        - chain:
-            id: B
-            res_index: 200..210
-
-      # Variable length insertions - both chains get the same sampled length
-      design_insertions:
-        - insertion:
-            id: A
-            res_index: 200
-            num_residues: 10..14  # Variable length: 10-14 residues
-        - insertion:
-            id: B
-            res_index: 200
-            num_residues: 10..14  # Same spec - will get same sampled length
-
-      # Allow designed regions to adopt new structure
-      structure_groups:
-        - group:
-            visibility: 1
-            id: A
-        - group:
-            visibility: 1
-            id: B
-        - group:
-            visibility: 0
-            id: A
-            res_index: 200..210
-        - group:
-            visibility: 0
             id: B
             res_index: 200..210
 ```
