@@ -55,12 +55,16 @@ ARG USERNAME=boltzgen
 ARG USER_UID=1000
 ARG USER_GID=1000
 
-RUN GROUP_NAME="$(getent group "${USER_GID}" | cut -d: -f1 || true)" && \
-    if [ -z "${GROUP_NAME}" ]; then \
+RUN EXISTING_USER="$(getent passwd "${USER_UID}" | cut -d: -f1 || true)" && \
+    EXISTING_GROUP="$(getent group "${USER_GID}" | cut -d: -f1 || true)" && \
+    if [ -z "${EXISTING_GROUP}" ]; then \
         groupadd --gid "${USER_GID}" "${USERNAME}"; \
-        GROUP_NAME="${USERNAME}"; \
+        EXISTING_GROUP="${USERNAME}"; \
     fi && \
-    if ! id -u "${USERNAME}" >/dev/null 2>&1; then \
+    if [ -n "${EXISTING_USER}" ]; then \
+        usermod -l "${USERNAME}" "${EXISTING_USER}" || true; \
+        usermod -d "/home/${USERNAME}" -m "${USERNAME}" || true; \
+    elif ! id -u "${USERNAME}" >/dev/null 2>&1; then \
         useradd --uid "${USER_UID}" --gid "${USER_GID}" --create-home --shell /bin/bash "${USERNAME}"; \
     fi
 
