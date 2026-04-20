@@ -55,8 +55,14 @@ ARG USERNAME=boltzgen
 ARG USER_UID=1000
 ARG USER_GID=1000
 
-RUN groupadd --gid ${USER_GID} ${USERNAME} && \
-    useradd --uid ${USER_UID} --gid ${USER_GID} --create-home --shell /bin/bash ${USERNAME}
+RUN GROUP_NAME="$(getent group "${USER_GID}" | cut -d: -f1 || true)" && \
+    if [ -z "${GROUP_NAME}" ]; then \
+        groupadd --gid "${USER_GID}" "${USERNAME}"; \
+        GROUP_NAME="${USERNAME}"; \
+    fi && \
+    if ! id -u "${USERNAME}" >/dev/null 2>&1; then \
+        useradd --uid "${USER_UID}" --gid "${USER_GID}" --create-home --shell /bin/bash "${USERNAME}"; \
+    fi
 
 RUN mkdir -p "${HF_HOME}" && chown -R ${USER_UID}:${USER_GID} "${HF_HOME}"
 
