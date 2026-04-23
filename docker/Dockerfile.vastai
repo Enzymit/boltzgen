@@ -50,7 +50,11 @@ WORKDIR /app
 
 COPY . /app
 
-RUN pip install --no-cache-dir -e /app
+RUN python3.11 -m pip install --no-cache-dir \
+    --index-url https://download.pytorch.org/whl/cu121 \
+    torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1
+
+RUN python3.11 -m pip install --no-cache-dir --no-deps -e /app
 
 ARG DOWNLOAD_WEIGHTS=true
 RUN mkdir -p "${HF_HOME}" && \
