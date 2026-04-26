@@ -9,13 +9,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
     CUDA_HOME=/usr/local/cuda \
     PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cu121 \
     HF_HOME=/cache
-ENV DEBIAN_FRONTEND=noninteractive \
-    PIP_NO_CACHE_DIR=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    CUDA_HOME=/usr/local/cuda \
-    PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cu121 \
-    HF_HOME=/cache
     
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -52,7 +45,14 @@ COPY . /app
 
 RUN python3.11 -m pip install --no-cache-dir \
     --index-url https://download.pytorch.org/whl/cu121 \
-    torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1
+    torch==2.4.1 \
+    torchvision==0.19.1 \
+    torchaudio==2.4.1
+
+RUN python3.11 -m pip install --no-cache-dir \
+    pytorch-lightning==2.4.0 \
+    torchmetrics==1.4.1
+
 
 RUN python3.11 -m pip install --no-cache-dir \
     numpy==2.0.2 \
@@ -81,6 +81,8 @@ RUN python3.11 -m pip install --no-cache-dir \
     biopython
 
 RUN python3.11 -m pip install --no-cache-dir --no-deps -e /app
+
+RUN python3.11 -c "import torch, torchvision, torchaudio, pytorch_lightning, torchmetrics; print(torch.__version__, torch.version.cuda); print(torchvision.__version__)"
 
 
 ARG DOWNLOAD_WEIGHTS=true
