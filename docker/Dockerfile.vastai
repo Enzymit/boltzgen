@@ -44,6 +44,9 @@ RUN python3.11 -m pip install --no-cache-dir --default-timeout=1000 -e /app
 
 RUN python3.11 -m pip install --no-cache-dir --default-timeout=1000 torchvision torchaudio
 
+RUN ln -s /usr/local/lib/python3.11/dist-packages/nvidia/cu13/lib/libnvrtc-builtins.so.13.0 \
+    /usr/local/cuda/targets/x86_64-linux/lib/libnvrtc-builtins.so.13.0
+
 RUN python3.11 -c "import torch, torchvision, torchaudio, pytorch_lightning, torchmetrics, boltzgen; print('torch', torch.__version__, torch.version.cuda); print('torchvision', torchvision.__version__); print('torchaudio', torchaudio.__version__)"
 
 ARG DOWNLOAD_WEIGHTS=true
