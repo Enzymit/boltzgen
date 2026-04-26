@@ -40,9 +40,9 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 &
 WORKDIR /app
 COPY . /app
 
-RUN python3.11 -m pip install --no-cache-dir -e /app
+RUN python3.11 -m pip install --no-cache-dir --default-timeout=1000 -e /app
 
-RUN python3.11 -m pip install --no-cache-dir torchvision torchaudio
+RUN python3.11 -m pip install --no-cache-dir --default-timeout=1000 torchvision torchaudio
 
 RUN python3.11 -c "import torch, torchvision, torchaudio, pytorch_lightning, torchmetrics, boltzgen; print('torch', torch.__version__, torch.version.cuda); print('torchvision', torchvision.__version__); print('torchaudio', torchaudio.__version__)"
 
