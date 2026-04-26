@@ -42,7 +42,9 @@ COPY . /app
 
 RUN python3.11 -m pip install --no-cache-dir -e /app
 
-RUN python3.11 -c "import torch, torchvision, torchaudio, pytorch_lightning, torchmetrics, boltzgen; print(torch.__version__, torch.version.cuda); print(torchvision.__version__)"
+RUN python3.11 -m pip install --no-cache-dir torchvision torchaudio
+
+RUN python3.11 -c "import torch, torchvision, torchaudio, pytorch_lightning, torchmetrics, boltzgen; print('torch', torch.__version__, torch.version.cuda); print('torchvision', torchvision.__version__); print('torchaudio', torchaudio.__version__)"
 
 ARG DOWNLOAD_WEIGHTS=true
 RUN mkdir -p "${HF_HOME}" && \
