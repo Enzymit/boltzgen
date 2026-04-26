@@ -7,8 +7,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     CUDA_HOME=/usr/local/cuda \
+    PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cu121 \
     HF_HOME=/cache
-
+    
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     software-properties-common \
@@ -35,29 +36,54 @@ RUN apt-get update && \
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 && \
     update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
     python3.11 -m ensurepip --upgrade && \
-    python3.11 -m pip install --no-cache-dir --upgrade pip setuptools setuptools_scm wheel
+    python3.11 -m pip install --no-cache-dir --upgrade setuptools setuptools_scm
+
 
 WORKDIR /app
+
 COPY . /app
-COPY docker/constraints-cu121.txt /tmp/constraints-cu121.txt
 
 RUN python3.11 -m pip install --no-cache-dir \
     --index-url https://download.pytorch.org/whl/cu121 \
-    -c /tmp/constraints-cu121.txt \
-    torch torchvision torchaudio
+    torch==2.4.1 \
+    torchvision==0.19.1 \
+    torchaudio==2.4.1
 
 RUN python3.11 -m pip install --no-cache-dir \
-    --constraint /tmp/constraints-cu121.txt \
+    pytorch-lightning==2.4.0 \
+    torchmetrics==1.4.1
+
+
+RUN python3.11 -m pip install --no-cache-dir \
+    numpy==2.0.2 \
+    numba==0.61.0 \
+    matplotlib \
+    hydride \
+    biotite \
+    pydssp \
+    logomaker \
+    "gemmi>=0.6.5" \
+    scikit-learn \
+    hydra-core \
+    edit_distance \
     pytorch-lightning \
-    torchmetrics \
-    cuequivariance \
-    cuequivariance_ops_cu12 \
-    cuequivariance_ops_torch_cu12 \
-    cuequivariance_torch
+    rdkit \
+    pandas \
+    pdbeccdutils \
+    einx \
+    einops \
+    mashumaro \
+    "nvidia-ml-py>=12.535.133" \
+    "cuequivariance_ops_cu12>=0.5.0" \
+    "cuequivariance_ops_torch_cu12>=0.5.0" \
+    "cuequivariance_torch>=0.5.0" \
+    huggingface_hub \
+    biopython
 
 RUN python3.11 -m pip install --no-cache-dir --no-deps -e /app
 
-RUN python3.11 -c "import torch, torchvision, torchaudio, pytorch_lightning, torchmetrics, boltzgen; print(torch.__version__, torch.version.cuda); print(torchvision.__version__)"
+RUN python3.11 -c "import torch, torchvision, torchaudio, pytorch_lightning, torchmetrics; print(torch.__version__, torch.version.cuda); print(torchvision.__version__)"
+
 
 ARG DOWNLOAD_WEIGHTS=true
 RUN mkdir -p "${HF_HOME}" && \
