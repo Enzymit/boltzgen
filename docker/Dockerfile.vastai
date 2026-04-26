@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM vastai/base-image:cuda-12.4.1-auto
+FROM vastai/base-image:cuda-13.2.0-auto
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
@@ -39,23 +39,8 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 &
 
 WORKDIR /app
 COPY . /app
-COPY docker/constraints-cu121.txt /tmp/constraints-cu121.txt
 
-RUN python3.11 -m pip install --no-cache-dir \
-    --index-url https://download.pytorch.org/whl/cu121 \
-    -c /tmp/constraints-cu121.txt \
-    torch torchvision torchaudio
-
-RUN python3.11 -m pip install --no-cache-dir \
-    --constraint /tmp/constraints-cu121.txt \
-    pytorch-lightning \
-    torchmetrics \
-    cuequivariance \
-    cuequivariance_ops_cu12 \
-    cuequivariance_ops_torch_cu12 \
-    cuequivariance_torch
-
-RUN python3.11 -m pip install --no-cache-dir --no-deps -e /app
+RUN python3.11 -m pip install --no-cache-dir -e /app
 
 RUN python3.11 -c "import torch, torchvision, torchaudio, pytorch_lightning, torchmetrics, boltzgen; print(torch.__version__, torch.version.cuda); print(torchvision.__version__)"
 
