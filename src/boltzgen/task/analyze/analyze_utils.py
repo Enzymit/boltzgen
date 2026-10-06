@@ -543,7 +543,9 @@ def compute_novelty_foldseek(
     foldseek_binary: str = "/data/rbg/users/hstark/foldseek/bin/foldseek",
 ) -> pd.DataFrame:
     if len(files) == 0:
-        return np.nan
+        return pd.DataFrame(
+            {"query": pd.Series(dtype="object"), "novelty": pd.Series(dtype="float64")}
+        )
 
     aln_tsv = outdir / "aln.tsv"
     tmp_dir = outdir / "tmp"
@@ -571,7 +573,7 @@ def compute_novelty_foldseek(
         names=["query", "target", "alntmscore", "qtmscore", "ttmscore"],
     )
     df["tmscore"] = (df["qtmscore"] + df["ttmscore"]) / 2
-    df = df.groupby("query").max().reset_index()
+    df = df.groupby("query")["tmscore"].max().reset_index()
     queries = [Path(f).stem for f in files]
     df = df.set_index("query").reindex(queries, fill_value=0.0).reset_index()
     df_novelty = df[["query", "tmscore"]].rename(columns={"tmscore": "novelty"})
@@ -641,13 +643,18 @@ def largest_hydrophobic_patch_area(cif_path, distance_cutoff=6.0):
     return max_patch_area
 
 
-def get_delta_sasa(
-    path,
-    atom_target_mask,                
-    atom_design_mask,           
-):
+def get_delta_sasa(path, atom_target_mask, atom_design_mask):
+    """Return target SASA lost on binding, unbound SASA and bound SASA."""
     stack = _load_stack(path)
     atoms = stack[0]
+    bound_mask = atom_design_mask | atom_target_mask
+    atoms_bound = atoms[bound_mask]
+    target_atoms = atoms[atom_target_mask]
+
+    # The surface area of an empty target, and hence its burial, is zero.
+    # Biotite cannot calculate SASA for an empty coordinate array.
+    if len(target_atoms) == 0:
+        return 0.0, 0.0, 0.0
 
     res = [
         r.decode().strip() if isinstance(r, bytes) else str(r).strip()
@@ -663,9 +670,6 @@ def get_delta_sasa(
         [_radius(rn, an, el) for rn, an, el in zip(res, atm, elem)], dtype=float
     )
 
-    
-    bound_mask = atom_design_mask | atom_target_mask
-    atoms_bound = atoms[bound_mask]
     radii_bound = radii[bound_mask]
 
     area_bound = sasa(
@@ -674,13 +678,10 @@ def get_delta_sasa(
         point_number=960,
         vdw_radii=radii_bound,
     )
-    
-    target_in_bound = atom_target_mask[bound_mask]
-    target_bound    = area_bound[target_in_bound].sum()
-    
-    
 
-    target_atoms = atoms[atom_target_mask]
+    target_in_bound = atom_target_mask[bound_mask]
+    target_bound = area_bound[target_in_bound].sum()
+
     target_res = [r for r, m in zip(res, atom_target_mask) if m]
     target_atm = [a for a, m in zip(atm, atom_target_mask) if m]
     target_elem = [e for e, m in zip(elem, atom_target_mask) if m]

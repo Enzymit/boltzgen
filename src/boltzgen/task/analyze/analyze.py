@@ -637,9 +637,10 @@ class Analyze(Task):
         # For symmetric designs where all chains have designed residues, use design_mask
         # instead of chain_design_mask so "target" = non-designed residues (not empty)
         if self.use_design_mask_for_target:
-            target_resolved_mask = (~design_mask) & feat["token_resolved_mask"].bool()
+            target_mask = ~design_mask
         else:
-            target_resolved_mask = (~chain_design_mask) & feat["token_resolved_mask"].bool()
+            target_mask = ~chain_design_mask
+        target_resolved_mask = target_mask & feat["token_resolved_mask"].bool()
         atom_design_resolved_mask = (
             (feat["atom_to_token"].float() @ design_resolved_mask.unsqueeze(-1).float())
             .bool()
@@ -651,8 +652,13 @@ class Analyze(Task):
             .squeeze()
         )
         atom_resolved_mask = feat["atom_resolved_mask"]
-        resolved_atoms_design_mask = atom_design_resolved_mask[atom_resolved_mask]
-        resolved_atoms_target_mask = atom_target_resolved_mask[atom_resolved_mask]
+        # SASA uses every present atom even when its representative is absent.
+        atom_target_mask = (
+            (feat["atom_to_token"].float() @ target_mask.unsqueeze(-1).float())
+            .bool()
+            .squeeze()
+        )
+        resolved_atoms_target_mask = atom_target_mask[atom_resolved_mask]
         atom_chain_mask = (
             (
                 feat["atom_to_token"].float()
@@ -661,6 +667,9 @@ class Analyze(Task):
             .bool()
             .squeeze()
         )
+        # Interface SASA includes fixed scaffold atoms and covalently attached
+        # components of every designed chain, not just redesigned residues.
+        resolved_atoms_chain_mask = atom_chain_mask[atom_resolved_mask]
 
         # Get masks for native structure
         if self.native:
@@ -740,7 +749,7 @@ class Analyze(Task):
             ) = get_delta_sasa(
                 path,
                 atom_target_mask=resolved_atoms_target_mask,
-                atom_design_mask=resolved_atoms_design_mask,
+                atom_design_mask=resolved_atoms_chain_mask,
             )
             metrics["delta_sasa_original"] = delta_sasa_orig
             metrics["design_sasa_unbound_original"] = design_sasa_unbound
@@ -1067,8 +1076,12 @@ class Analyze(Task):
                 metrics["native_rmsd_bb_refolded"] = bb_refold_target_rmsd.item()
 
             # Save the refolded structure of the design to a pdb file if novelty computation needs to be run on it later.
+            des_refold_pdb_dir = self.des_refold_pdb_dir
+            if suffix is not None:
+                des_refold_pdb_dir = des_refold_pdb_dir / suffix
+                des_refold_pdb_dir.mkdir(exist_ok=True, parents=True)
             des_refold_pdb_path = (
-                self.des_refold_pdb_dir / f"{feat['id']}_des_refold.pdb"
+                des_refold_pdb_dir / f"{feat['id']}_des_refold.pdb"
             )
             des_refold_cif_path = des_refold_pdb_path.with_suffix(".cif")
             if self.novelty_refolded or self.novelty_per_target_refolded:
@@ -1124,7 +1137,7 @@ class Analyze(Task):
                 ) = get_delta_sasa(
                     cif_path_refolded,
                     atom_target_mask=resolved_atoms_target_mask,
-                    atom_design_mask=resolved_atoms_design_mask,
+                    atom_design_mask=resolved_atoms_chain_mask,
                 )
 
                 metrics["delta_sasa_refolded"] = delta_sasa_refolded
@@ -1356,11 +1369,11 @@ class Analyze(Task):
             )
             nov_csv = Path(design_dir) / f"novelty_per_target_original_{self.name}.csv"
             nov_df.to_csv(nov_csv, index=False, float_format="%.5f")
-            avg_metrics["mean_novelty_per_target_original"] = (
-                nov_df["novelty"].mean().round(5)
+            avg_metrics["mean_novelty_per_target_original"] = round(
+                nov_df["novelty"].mean(), 5
             )
-            avg_metrics["median_novelty_per_target_original"] = (
-                nov_df["novelty"].median().round(5)
+            avg_metrics["median_novelty_per_target_original"] = round(
+                nov_df["novelty"].median(), 5
             )
             metrics_data["nov_df"] = nov_df
 
@@ -1391,8 +1404,8 @@ class Analyze(Task):
             )
             nov_csv = Path(design_dir) / f"novelty_per_target_refolded_{self.name}.csv"
             nov_df_refold.to_csv(nov_csv, index=False, float_format="%.5f")
-            avg_metrics["mean_novelty_per_target_refolded"] = (
-                nov_df_refold["novelty"].mean().round(5)
+            avg_metrics["mean_novelty_per_target_refolded"] = round(
+                nov_df_refold["novelty"].mean(), 5
             )
             avg_metrics["median_novelty_per_target_refolded"] = round(
                 nov_df_refold["novelty"].median(), 5
