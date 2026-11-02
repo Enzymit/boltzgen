@@ -49,6 +49,7 @@ from boltzgen.task.predict.data_from_generated import FromGeneratedDataModule
 import torch
 import numpy as np
 import pandas as pd
+from boltzgen.data.parse.table import read_metrics_table  # noqa: E402
 from tqdm import tqdm
 from collections import defaultdict
 
@@ -743,12 +744,12 @@ class Analyze(Task):
 
         # largest hydrophobic patch area original
         if self.largest_hydrophobic:
-            if not des_cif_path.exists():
-                save_design_only_structure_to_cif(
-                    atom_design_mask=atom_chain_mask,
-                    structure=feat["str_gen"],
-                    output_path=des_cif_path,
-                )
+            # A prior invocation may have left incomplete or stale scratch data.
+            save_design_only_structure_to_cif(
+                atom_design_mask=atom_chain_mask,
+                structure=feat["str_gen"],
+                output_path=des_cif_path,
+            )
             area = largest_hydrophobic_patch_area(des_cif_path)
             metrics["design_largest_hydrophobic_patch"] = area
         if des_cif_path is not None:
@@ -905,7 +906,7 @@ class Analyze(Task):
 
         # Check binding site adherence. For each binding site token, find closest design token
         binding_site_mask = feat["binding_type"] == 1
-        if binding_site_mask.sum() > 1:
+        if binding_site_mask.any() and feat["design_mask"].any():
             token_distances = torch.cdist(feat["center_coords"], feat["center_coords"])
             bindsite_design_distances = token_distances[binding_site_mask][
                 :, feat["design_mask"]
@@ -1138,14 +1139,12 @@ class Analyze(Task):
 
             # largest hydrophobic patch area refolded
             if self.largest_hydrophobic_refolded:
-                if not des_refold_cif_path.exists():
-                    structure, _, _ = Structure.from_feat(feat_out)
-
-                    save_design_only_structure_to_cif(
-                        atom_design_mask=atom_chain_mask,
-                        structure=structure,
-                        output_path=des_refold_cif_path,
-                    )
+                structure, _, _ = Structure.from_feat(feat_out)
+                save_design_only_structure_to_cif(
+                    atom_design_mask=atom_chain_mask,
+                    structure=structure,
+                    output_path=des_refold_cif_path,
+                )
                 area_refold = largest_hydrophobic_patch_area(des_refold_cif_path)
                 metrics["design_largest_hydrophobic_patch_refolded"] = area_refold
             if des_refold_cif_path is not None:
@@ -1490,10 +1489,9 @@ class Analyze(Task):
         try:
             subprocess.run(cmd, check=True)
 
-            df_cluster = pd.read_csv(
+            df_cluster = read_metrics_table(
                 str(cluster_prefix) + "_cluster.tsv",
                 sep="\t",
-                header=None,
                 names=["file", "clusters_05_tmscore"],
             )
             df_cluster["file"] = df_cluster["file"].apply(lambda x: Path(x).stem)

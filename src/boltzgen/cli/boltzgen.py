@@ -47,10 +47,13 @@ import pandas as pd
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 import yaml
+
+from boltzgen.data.parse.table import read_metrics_table  # noqa: E402
 import hydra
 import omegaconf
 import torch
 from rdkit import Chem  # noqa: E402
+from boltzgen.data.parse.yaml import load_yaml  # noqa: E402
 
 from boltzgen.data import const
 from boltzgen.data.mol import load_canonicals
@@ -875,7 +878,7 @@ def execute_command(args: argparse.Namespace) -> None:
 
     # Load steps from steps.yaml
     with open(steps_yaml_path, "r") as f:
-        steps_data = yaml.safe_load(f)
+        steps_data = load_yaml(f)
 
     if not isinstance(steps_data, dict) or "steps" not in steps_data:
         raise ValueError(f"Invalid steps.yaml format in {steps_yaml_path}")
@@ -1023,7 +1026,9 @@ class BinderDesignPipeline:
         use_solublempnn = _resolve_inverse_fold_model(args) == "solublempnn"
 
         # Handle use_kernels argument
-        device_capability = torch.cuda.get_device_capability()
+        device_capability = (
+            torch.cuda.get_device_capability() if torch.cuda.is_available() else (0, 0)
+        )
         use_kernels = None
         if args.use_kernels == "auto":
             use_kernels = device_capability[0] >= 8
@@ -1044,7 +1049,7 @@ class BinderDesignPipeline:
         )
 
         devices = (
-            args.devices if args.devices is not None else torch.cuda.device_count()
+            args.devices if args.devices is not None else max(1, torch.cuda.device_count())
         )
         print(f"Using {devices} devices")
 
@@ -1688,23 +1693,7 @@ def merge_command(args: argparse.Namespace) -> None:
 
             metrics_path = src_dir / "aggregate_metrics_analyze.csv"
             if metrics_path.exists():
-                # Preserve identifiers and valid "NA" sequences when merging.
-                sequence_columns = [
-                    column
-                    for column in pd.read_csv(metrics_path, nrows=0).columns
-                    if column == "designed_chain_sequence"
-                    or column.startswith(("designed_sequence", "full_sequence_"))
-                ]
-                df = pd.read_csv(
-                    metrics_path,
-                    converters={
-                        "id": str,
-                        "file_name": str,
-                        **dict.fromkeys(
-                            sequence_columns, lambda value: value or None
-                        ),
-                    },
-                )
+                df = read_metrics_table(metrics_path)
                 if df.empty:
                     message = (
                         f"Metrics file contains no analyzed designs: {metrics_path}. "
@@ -1805,7 +1794,7 @@ def merge_command(args: argparse.Namespace) -> None:
 
             per_target_path = src_dir / "per_target_metrics_analyze.csv"
             if per_target_path.exists():
-                per_target_frames.append(pd.read_csv(per_target_path))
+                per_target_frames.append(read_metrics_table(per_target_path))
 
             for original_id, new_id, original_file, new_file in source_mappings:
                 _copy_design_files(
